@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Uploader File - Bootstrap v3.3.7</title>
+    <!--  <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script> -->
+    <script src="jquery1.12.4.min.js"></script>
+
+    <!-- Latest compiled and minified JavaScript -->
+    <!-- <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous">
+    </script> -->
+    <script src="boostrap3.3.7.min.js"></script>
+
+    <!-- Latest compiled and minified CSS -->
+    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"> -->
+    <link rel="stylesheet" href="boostrap3.3.7.min.css">
+
+    <style>
+        .btn-file {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-file input[type=file] {
+            position: absolute;
+            top: 0;
+            right: 0;
+            min-width: 100%;
+            min-height: 100%;
+            font-size: 999px;
+            text-align: right;
+            filter: alpha(opacity=0);
+            opacity: 0;
+            background: red;
+            cursor: inherit;
+            display: block;
+        }
+
+        input[readonly] {
+            background-color: white !important;
+            cursor: text !important;
+        }
+    </style>
+
+
+    <script>
+
+        // Quando a pagina abre array inicia vazio - Array responsavel por armazenar os pdfs para serem enviados por upload
+        let filesToUploadss = [];
+
+        // Variável contador que server como uma chave primaria, necessária para que a exclusão do item da lista seja possivel
+        let contadorItemToUpload = 0;
+
+        // Constante armazena os tipos de arquivos que o usuário poderá fazer upload
+        // Aceita PDF, doc, docx, xls, xlsx, csv, jpg, jpeg, png, tiff
+        const TYPE_FILE_ACCEPT_TO_UPLOAD = [
+            "application/pdf",
+            "image/png",
+            "image/jpg",
+            "image/jpeg",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel" // .csv
+        ]
+
+        // Constante define um valor máximo padrão para upload de arquivos
+        const MAXIMUM_TOTAL_FILES_TO_UPLOAD = 11;
+
+
+        // Evento (Hook) - Quando a pagina HTML tiver carregando tudo e estiver ok, faça ... 
+        $(document).ready(function () {
+
+            // chama função para setar os tipos de arquivo que o usuário pode escolher para fazer upload
+            $('#uploadFiless').attr("accept", TYPE_FILE_ACCEPT_TO_UPLOAD)
+
+            // Quando o input receber um ou varios arquivos, faça ...
+            $('#uploadFiless').change(function (event) {
+                let filesToUpload = event.target.files;
+
+                addFilesToUpload(filesToUpload)
+                // Limpa o input para selecionar o arquivo (remove o texto informando quantos arquivos foram selecionados)
+                $("#uploadFiless").val('');
+
+
+            });
+        });
+
+        // Função responsável por adicionar os arquivos para upload
+        function addFilesToUpload(files) {
+
+            // armazena os arquivos selecionados pelo usuário
+            let filesToUpload = files;
+
+            let arrayLocalContainsFilesOKToUpload = validateFilesToUpload(filesToUpload)
+
+            // Caso retorne o array com ao menos um arquivo válido. faça ...
+            if (arrayLocalContainsFilesOKToUpload.length > 0) {
+
+                // A Cada interação monte um objeto contendo nome, tipo e tamanho do arquivo selecionado 
+                // e por fim adicione ao array global
+                for (let index = 0; index < arrayLocalContainsFilesOKToUpload.length; index++) {
+                    const file = arrayLocalContainsFilesOKToUpload[index];
+
+                    // Criando objeto literal
+                    const fileOkToUpload = {
+                        id: contadorItemToUpload++,
+                        name: file.name,
+                        type: file.type,
+                        size: file.size
+                    }
+
+                    // Add objeto ao array global para upload
+                    filesToUploadss.push(fileOkToUpload);
+                }
+
+                // chama função para atualizar a grid
+                createAndRefreshGridFilesToUpload();
+            }
+        }
+
+        // Função para verificar se o arquivo selecionado para upload é valido
+        // Valida:
+        /* 1 - Se arquivo já não existe (valida nome e tipo da extensão)
+         * 2 - Se a extensão está dentro das exigidas  
+         * 3 - Se o tamanho do arquivo é <= 1MB
+         * 4 - Se O uploado já atingiu o upload de no máximo 10 arquivos
+        */
+        function validateFilesToUpload(receiveArrayOfFilesToValidate) {
+
+            // Array local para armazenar os arquivos válidos para upload
+            let arrayLocalFilesOKToUpload = [];
+
+            // Itera todos os arquivos selecionados pelo usuário no input/drag in drop
+            for (let index1 = 0; index1 < receiveArrayOfFilesToValidate.length; index1++) {
+
+                let goToNextStep = false;
+                //console.log(goToNextStep)
+                let file = receiveArrayOfFilesToValidate[index1];
+
+                // ETAPA 1 - Valida se arquivo atual já não foi adicionado na lista exibida para o usuário - valida pelo nome e tipo do arquivo
+                // ============================================================================================================================
+                if (filesToUploadss.length === 0) {
+                    //console.log('1 - elemento :', file.name, file.size, file.type, 'array vazio, adicionando primeiro arquivo')
+                    goToNextStep = true
+
+                    // Caso o Array não esteja vazio
+                } else {
+
+                    // Loop para validar se o novo arquivo selecionado para upload já não foi selecionado antes e já está na lista
+                    for (let index2 = 0; index2 < filesToUploadss.length; index2++) {
+
+                        // Passa o numero da posição onde o caracter está e passa para variável
+                        let posicao1 = file.name.indexOf('.')
+                        // Variável recebe o nome do arquivo que deve ser enviado para upload sem a extensão (ex: arquivo.txt -> arquivo)
+                        let nameOfFileToBeAdd = file.name.substring(0, posicao1);
+
+                        let posicao2 = filesToUploadss[index2].name.indexOf('.')
+                        let nameOfFileToCompareExistence = filesToUploadss[index2].name.substring(0, posicao2);
+
+                        //console.log('2 -', nameOfFileToBeAdd, ' - ', nameOfFileToCompareExistence, ' - ', file.type, ' - ', filesToUploadss[index2].type)
+
+                        // Verifica se o arquivo do loop atual existe no array principal
+                        if (nameOfFileToBeAdd === nameOfFileToCompareExistence && file.type === filesToUploadss[index2].type) {
+                            //console.log('é igual')
+
+                            goToNextStep = false
+                            break
+
+                        } else {
+                            //console.log('2.1 - elemento :', nameOfFileToBeAdd, 'não existe e será add ...')
+                            goToNextStep = true
+                        }
+                    }
+                }
+
+                // ETAPA 2 - Valida se o formato/tipo do arquivo é valido
+                // ===================================================================================================================
+                if (goToNextStep) {
+
+                    // Reseta a variável responsavel por ir ao proximo passo
+                    goToNextStep = false;
+
+                    for (let index3 = 0; index3 < TYPE_FILE_ACCEPT_TO_UPLOAD.length; index3++) {
+                        if (file.type === TYPE_FILE_ACCEPT_TO_UPLOAD[index3]) {
+                            //console.log('3 - elemento :', file.name, 'é igual ao tipo: ', TYPE_FILE_ACCEPT_TO_UPLOAD[index3])
+
+                            goToNextStep = true
+                            break
+                        }
+                    }
+                }
+
+                // ETAPA 3 - Valida o tamanho do arquivo (Tamanho aceito até <= 1MB)
+                // ===================================================================================================================
+                if (goToNextStep) {
+
+                    // Reseta a variável responsavel por ir ao proximo passo
+                    goToNextStep = false;
+
+                    // Variavel recebe o valor bruto do tamanho do arquivo
+                    let sizeOfFileWithoutFormat = file.size;
+
+                    // Realiza a identificação do tamanho do arquivo e a classificação de armazenamento dele. (ex: se é Megabyte, Gigabyte ...)
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                    const i = Math.min(parseInt(Math.floor(Math.log(sizeOfFileWithoutFormat) / Math.log(1024)).toString(), 10), sizes.length - 1);
+                    let sizeFileFormated = (sizeOfFileWithoutFormat / (1024 ** i)).toFixed(i ? 1 : 0)
+
+                    // Variável recebe 'true' caso o arquivo selecionado for maior do que 1 MB
+                    let fileIsVeryLarge = sizeFileFormated > 1 && sizes[i].includes('MB') || sizes[i].includes('GB') || sizes[i].includes('TB')
+
+                    // Nega a variável, dessa forma a condição irá passar apenas se o arquivo for menor ou igual a 1 MB 
+                    if (!fileIsVeryLarge) {
+                        //console.log('Tamanho correto')
+                        goToNextStep = true
+                    }
+                }
+
+                // ETAPA 4 - Verifica se o o Usuário está importando no máximo 10 arquivos de uma vez só (valida se array local já não possui 10 arquivos para upload) 
+                // ===================================================================================================================================================
+                if (goToNextStep) {
+
+                    if (arrayLocalFilesOKToUpload.length <= 9) {
+                        //console.log('add...')
+                        arrayLocalFilesOKToUpload.push(file);
+                    } else {
+                        //console.log('array no limite!')
+                        break
+                    }
+                }
+            }
+
+            // Verifica se o array principal já atingiu o maximo de 10 arquivos para upload.
+            // Variável recebe '0' caso tenha atingido o maximo, caso contrário recebe o total de arquivos que ainda podem ser importados para upload
+            let totalFilesRemainigToReachMaximum = Math.abs(filesToUploadss.length - MAXIMUM_TOTAL_FILES_TO_UPLOAD);
+
+            // Array local recebe o total de arquivos que o array principal ainda pode importar para upload
+            arrayLocalFilesOKToUpload = arrayLocalFilesOKToUpload.slice(0, totalFilesRemainigToReachMaximum)
+
+            // retorna array com os arquivos validados para upload
+            return arrayLocalFilesOKToUpload
+        }
+
+        // Cria/Atualiza lista contendo os itens cotendo os nomes que o usuario selecionou para upload
+        function createAndRefreshGridFilesToUpload() {
+
+            // Variavel que recebe o elemento HTML responsavel por exibir na tela o nome do arquivo para upload selecionado pelo usuário. 
+            let elementHtmlLi = '';
+
+            for (let index = 0; index < filesToUploadss.length; index++) {
+
+                // Cria o item da lista contendo o nome do arquivo e sua posição do array
+                elementHtmlLi += `
+                    <div class="alert alert-info alert-dismissible" role="alert">
+                        <button type="button" onclick="removeItemOfListToUpload(${filesToUploadss[index].id});" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <strong>Arquivo:</strong> ${filesToUploadss[index].name} &nbsp; <strong>Tamanho:</strong> ${returnsFileSizeConvertedToDigitalStorageMeasure(filesToUploadss[index].size)}
+                    </div>
+                `;
+            }
+
+            // Adiciona a(s) nova(s) linha(s) contendo o(s) nome(s) do(s) arquivo(s) à lista
+            document.getElementById("main_list").innerHTML = elementHtmlLi
+        }
+
+        // Debug - Exibe tamanho do array
+        function lengthArray() {
+            console.log(filesToUploadss)
+        }
+
+        // Remove item da lista - Funcionando
+        function removeItemOfListToUpload(idContador) {
+            filesToUploadss = filesToUploadss.filter(function (value, index, arr) {
+                return value.id !== idContador;
+            });
+        }
+
+        // Função recebe como parametro o tamanho bruto do arquivo e retorna o tamanho convertido em uma medida de armazenamento digital
+        // Exemplo: 13 KB, 2 MB ...
+        function returnsFileSizeConvertedToDigitalStorageMeasure(fileSize) {
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.min(parseInt(Math.floor(Math.log(fileSize) / Math.log(1024)).toString(), 10), sizes.length - 1);
+            return (fileSize / (1024 ** i)).toFixed(i ? 1 : 0) + ` ${sizes[i]}`
+        }
+    </script>
+</head>
+
+<body>
+    <form>
+
+        <br><br>
+
+        <p>
+        <div class="input-group">
+            <span class="input-group-btn">
+                <span class="btn btn-primary btn-file">
+                    <i class="glyphicon glyphicon-paperclip"></i>&nbsp;
+                    <b>Clique aqui para Anexar algum Arquivo</b>
+                    <input id="uploadFiless" type="file" multiple>
+                </span>
+            </span>
+        </div>
+        </p>
+
+    </form>
+
+    <!-- Modal -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Modal title</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    ...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <button onclick="lengthArray();">lengthArray</button>
+
+    <div class="panel-body">
+        <ul id="main_list" class="list-group">
+            <!--  A lista contendo o nome dos arquivos para upload será injetada no HTML aqui dentro! -->
+        </ul>
+    </div>
+
+
+</body>
+
+</html>
